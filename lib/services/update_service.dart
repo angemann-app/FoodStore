@@ -68,7 +68,7 @@ class UpdateCheckResult {
 
 class UpdateService {
   /// Aktuell installierte App-Version
-  static const String currentAppVersion = '0.1.0-beta.3';
+  static const String currentAppVersion = '0.1.0-beta.4';
 
   static const String githubOwner = 'angemann-app';
   static const String githubRepo = 'FoodStore';

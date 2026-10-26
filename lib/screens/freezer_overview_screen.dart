@@ -162,7 +162,7 @@ class _FreezerOverviewScreenState extends State<FreezerOverviewScreen> {
                                 ),
                               ),
                               Text(
-                                'iQ500 noFrost • Mammut-Bestandswächter',
+                                'iQ500 noFrost • Frosti Bestandswächter',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.cyanAccent.withValues(alpha: 0.9),
