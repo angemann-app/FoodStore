@@ -6,6 +6,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../models/nostr_models.dart';
 import '../services/app_state.dart';
 import '../services/nostr_service.dart';
+import '../services/update_service.dart';
+import '../widgets/update_center_dialog.dart';
 
 class HouseholdSettingsScreen extends StatefulWidget {
   final AppState appState;
@@ -918,6 +920,137 @@ class _HouseholdSettingsScreenState extends State<HouseholdSettingsScreen> {
                         }
                       },
                       child: const Text('+ Relay'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // 4. APP-UPDATES & RELEASE-KANAL (STABLE / BETA)
+        Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF005691).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.system_update_rounded,
+                        color: Color(0xFF005691),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'App-Updates (Stable / Beta)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Installiert: v${UpdateService.currentAppVersion} • Kanal: ${appState.updateChannel.label}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blueGrey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (appState.isUpdateAvailable)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade700,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'UPDATE BEREIT',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SegmentedButton<UpdateChannel>(
+                  segments: const [
+                    ButtonSegment<UpdateChannel>(
+                      value: UpdateChannel.stable,
+                      icon: Icon(Icons.verified_outlined, size: 18),
+                      label: Text('Stable-Kanal'),
+                    ),
+                    ButtonSegment<UpdateChannel>(
+                      value: UpdateChannel.beta,
+                      icon: Icon(Icons.science_outlined, size: 18),
+                      label: Text('Beta-Kanal'),
+                    ),
+                  ],
+                  selected: {appState.updateChannel},
+                  onSelectionChanged: (sel) {
+                    if (sel.isNotEmpty) {
+                      appState.setUpdateChannel(sel.first);
+                    }
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Tägliches Prüfen auf neue Versionen',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Prüft automatisch alle 24 Stunden im gewählten Kanal auf GitHub.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: appState.autoCheckUpdatesDaily,
+                  onChanged: (val) => appState.setAutoCheckUpdatesDaily(val),
+                ),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF005691),
+                      ),
+                      onPressed: appState.isCheckingForUpdates
+                          ? null
+                          : () async {
+                              await appState.checkForUpdatesNow();
+                              if (!context.mounted) return;
+                              UpdateCenterDialog.show(context, appState: appState);
+                            },
+                      icon: appState.isCheckingForUpdates
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Jetzt auf Updates prüfen'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: () =>
+                          UpdateCenterDialog.show(context, appState: appState),
+                      child: const Text('Update-Center öffnen'),
                     ),
                   ],
                 ),

@@ -11,6 +11,7 @@ import '../models/nostr_models.dart';
 import 'nostr_crypto.dart';
 import 'nostr_service.dart';
 import 'r2_storage_service.dart';
+import 'update_service.dart';
 
 class PendingMemberInvite {
   final HouseholdMember member;
@@ -29,6 +30,9 @@ class AppState extends ChangeNotifier {
   static const String _prefHouseholdKey = 'eiszeit_household_config_v1';
   static const String _prefItemsKey = 'eiszeit_freezer_items_v1';
   static const String _prefTransactionsKey = 'eiszeit_transactions_v1';
+  static const String _prefUpdateChannelKey = 'eiszeit_update_channel_v1';
+  static const String _prefAutoUpdateDailyKey = 'eiszeit_auto_update_daily_v1';
+  static const String _prefLastUpdateCheckKey = 'eiszeit_last_update_check_v1';
 
   final NostrService nostrService = NostrService();
 
@@ -40,6 +44,13 @@ class AppState extends ChangeNotifier {
   bool _isMigratingR2 = false;
   String? _lastSyncMessage;
 
+  UpdateChannel _updateChannel = UpdateChannel.beta;
+  bool _autoCheckUpdatesDaily = true;
+  DateTime? _lastUpdateCheck;
+  UpdateCheckResult? _latestUpdateResult;
+  bool _isCheckingForUpdates = false;
+  Timer? _dailyUpdateTimer;
+
   NostrUserProfile get currentUser => _currentUser;
   HouseholdConfig get household => _household;
   List<FreezerItem> get items => List.unmodifiable(_items);
@@ -47,6 +58,13 @@ class AppState extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isMigratingR2 => _isMigratingR2;
   String? get lastSyncMessage => _lastSyncMessage;
+
+  UpdateChannel get updateChannel => _updateChannel;
+  bool get autoCheckUpdatesDaily => _autoCheckUpdatesDaily;
+  DateTime? get lastUpdateCheck => _lastUpdateCheck;
+  UpdateCheckResult? get latestUpdateResult => _latestUpdateResult;
+  bool get isCheckingForUpdates => _isCheckingForUpdates;
+  bool get isUpdateAvailable => _latestUpdateResult?.updateAvailable == true;
 
   /// Ist der aktuelle Benutzer einer der (maximal 2) Hosts/Admins?
   bool get isCurrentUserHost => _household.isHost(_currentUser.pubkey);
@@ -156,7 +174,18 @@ class AppState extends ChangeNotifier {
       await _saveTransactionsToPrefs(prefs);
     }
 
-    // 5. Verbinde Nostr-Callbacks & starte Relay-Verbindung
+    // 5. Lade Update-Einstellungen (Kanal: Beta vs. Stable + Tägliche Prüfung)
+    final savedChannel = prefs.getString(_prefUpdateChannelKey);
+    _updateChannel = savedChannel == 'stable'
+        ? UpdateChannel.stable
+        : UpdateChannel.beta;
+    _autoCheckUpdatesDaily = prefs.getBool(_prefAutoUpdateDailyKey) ?? true;
+    final savedCheckIso = prefs.getString(_prefLastUpdateCheckKey);
+    if (savedCheckIso != null) {
+      _lastUpdateCheck = DateTime.tryParse(savedCheckIso);
+    }
+
+    // 6. Verbinde Nostr-Callbacks & starte Relay-Verbindung
     nostrService.onStatusChanged = notifyListeners;
     nostrService.onSnapshotReceived = _handleIncomingSnapshot;
     nostrService.onTransactionReceived = _handleIncomingTransaction;
@@ -167,6 +196,9 @@ class AppState extends ChangeNotifier {
 
     // Verbinde im Hintergrund zu den Nostr-Relays
     unawaited(nostrService.connectToRelays(_household));
+
+    // Starte tägliche Update-Prüfung (beim Start falls >= 24h her + Hintergrund-Timer)
+    _scheduleDailyUpdateCheck();
   }
 
   List<FreezerItem> itemsInCompartment(String compartmentId) {
@@ -789,6 +821,71 @@ class AppState extends ChangeNotifier {
     await nostrService.connectToRelays(_household);
     await _syncToNostr();
     _lastSyncMessage = 'Nostr-Synchronisation ausgeführt (${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')} Uhr)';
+    notifyListeners();
+  }
+
+  // ===========================================================================
+  // APP-UPDATE-PRÜFUNG (STABLE / BETA KANAL & TÄGLICHER AUTO-CHECK)
+  // ===========================================================================
+
+  void _scheduleDailyUpdateCheck() {
+    _dailyUpdateTimer?.cancel();
+    if (_autoCheckUpdatesDaily) {
+      final now = DateTime.now();
+      final isDue = _lastUpdateCheck == null ||
+          now.difference(_lastUpdateCheck!).inHours >= 24;
+      if (isDue) {
+        unawaited(checkForUpdatesNow(silent: true));
+      }
+      _dailyUpdateTimer = Timer.periodic(const Duration(hours: 6), (_) {
+        if (!_autoCheckUpdatesDaily) return;
+        final ref = _lastUpdateCheck;
+        if (ref == null || DateTime.now().difference(ref).inHours >= 24) {
+          unawaited(checkForUpdatesNow(silent: true));
+        }
+      });
+    }
+  }
+
+  /// Löst sofort eine Prüfung auf neue Versionen im aktuell gewählten Kanal (`Stable` oder `Beta`) aus.
+  Future<UpdateCheckResult> checkForUpdatesNow({bool silent = false}) async {
+    _isCheckingForUpdates = true;
+    notifyListeners();
+
+    final result = await UpdateService.checkForUpdates(
+      channel: _updateChannel,
+      installedVersion: UpdateService.currentAppVersion,
+    );
+
+    _latestUpdateResult = result;
+    _isCheckingForUpdates = false;
+    if (result.error == null) {
+      _lastUpdateCheck = result.checkedAt;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _prefLastUpdateCheckKey,
+        result.checkedAt.toIso8601String(),
+      );
+    }
+    notifyListeners();
+    return result;
+  }
+
+  /// Wechselt zwischen `UpdateChannel.stable` und `UpdateChannel.beta` und prüft direkt auf Updates.
+  Future<UpdateCheckResult> setUpdateChannel(UpdateChannel newChannel) async {
+    _updateChannel = newChannel;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefUpdateChannelKey, newChannel.name);
+    notifyListeners();
+    return checkForUpdatesNow();
+  }
+
+  /// Aktiviert oder deaktiviert die tägliche automatische Update-Prüfung.
+  Future<void> setAutoCheckUpdatesDaily(bool enabled) async {
+    _autoCheckUpdatesDaily = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefAutoUpdateDailyKey, enabled);
+    _scheduleDailyUpdateCheck();
     notifyListeners();
   }
 

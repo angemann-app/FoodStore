@@ -6,6 +6,7 @@ import 'screens/freezer_overview_screen.dart';
 import 'screens/household_settings_screen.dart';
 import 'services/app_state.dart';
 import 'widgets/eiszeit_visual_effects.dart';
+import 'widgets/update_center_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -179,6 +180,25 @@ class _EiszeitHomeShellState extends State<EiszeitHomeShell> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: appState.isUpdateAvailable
+                            ? 'Neues App-Update verfügbar!'
+                            : 'Auf App-Updates prüfen (Stable / Beta)',
+                        onPressed: () {
+                          UpdateCenterDialog.show(context, appState: appState);
+                        },
+                        icon: Badge(
+                          isLabelVisible: appState.isUpdateAvailable,
+                          backgroundColor: const Color(0xFF00E676),
+                          label: const Text('NEU', style: TextStyle(fontSize: 8)),
+                          child: Icon(
+                            Icons.system_update_rounded,
+                            color: appState.isUpdateAvailable
+                                ? const Color(0xFF00E676)
+                                : Colors.white,
+                          ),
                         ),
                       ),
                       IconButton(

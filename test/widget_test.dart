@@ -1,6 +1,7 @@
 import 'package:eiszeit/models/freezer_compartment.dart';
 import 'package:eiszeit/models/nostr_models.dart';
 import 'package:eiszeit/services/nostr_crypto.dart';
+import 'package:eiszeit/services/update_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -114,6 +115,25 @@ void main() {
       expect(resolved.hasCustomLabel, isTrue);
       expect(resolved.title, equals('Beeren, Obst & Smoothies'));
       expect(resolved.subtitle, equals('Frühstücks-Schublade'));
+    });
+
+    test('compares Stable and Beta versions accurately', () {
+      expect(
+        UpdateService.compareVersions('v0.1.0-beta.3', 'v0.1.0-beta.2'),
+        greaterThan(0),
+      );
+      expect(
+        UpdateService.compareVersions('v0.1.0', 'v0.1.0-beta.3'),
+        greaterThan(0),
+      );
+      expect(
+        UpdateService.compareVersions('v0.2.0-beta.1', 'v0.1.0'),
+        greaterThan(0),
+      );
+      expect(
+        UpdateService.compareVersions('0.1.0-beta.3', 'v0.1.0-beta.3'),
+        equals(0),
+      );
     });
   });
 }
