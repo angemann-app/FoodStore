@@ -8,6 +8,8 @@ import '../models/freezer_item.dart';
 class FreezerItemCard extends StatelessWidget {
   final FreezerItem item;
   final bool showCompartmentBadge;
+  final String? customCompartmentTitle;
+  final List<FreezerCompartment>? availableCompartments;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemoveAll;
@@ -18,6 +20,8 @@ class FreezerItemCard extends StatelessWidget {
     super.key,
     required this.item,
     this.showCompartmentBadge = false,
+    this.customCompartmentTitle,
+    this.availableCompartments,
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemoveAll,
@@ -29,6 +33,9 @@ class FreezerItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormatter = DateFormat('dd.MM.yyyy');
     final compartment = FreezerCompartment.byId(item.compartmentId);
+    final compTitle = customCompartmentTitle ?? compartment.title;
+    final compartmentsList =
+        availableCompartments ?? FreezerCompartment.siemensNoFrostCompartments;
     final freshness = item.freshnessStatus;
 
     Color statusColor;
@@ -100,7 +107,7 @@ class FreezerItemCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                compartment.title,
+                                compTitle,
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -261,16 +268,18 @@ class FreezerItemCard extends StatelessWidget {
                       tooltip: 'In anderes Fach umräumen',
                       onSelected: onMoveCompartment,
                       itemBuilder: (context) {
-                        return FreezerCompartment.siemensNoFrostCompartments
+                        return compartmentsList
                             .where((c) => c.id != item.compartmentId)
                             .map(
                               (c) => PopupMenuItem<String>(
                                 value: c.id,
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.swap_vert, size: 18),
+                                    Icon(c.themeIcon, size: 18, color: c.accentColor),
                                     const SizedBox(width: 8),
-                                    Expanded(child: Text('Nach ${c.title}')),
+                                    Expanded(
+                                      child: Text('${c.slotBadge}: ${c.title}'),
+                                    ),
                                   ],
                                 ),
                               ),

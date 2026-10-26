@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../models/freezer_compartment.dart';
 import '../models/nostr_models.dart';
 import '../services/app_state.dart';
 
@@ -130,9 +129,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen> {
         else
           ...filtered.map((tx) {
             final config = _styleForTransaction(tx);
-            final compTitle = FreezerCompartment.byId(tx.compartmentId).title;
+            final compTitle = appState.compartmentById(tx.compartmentId).title;
             final targetTitle = tx.targetCompartmentId != null
-                ? FreezerCompartment.byId(tx.targetCompartmentId!).title
+                ? appState.compartmentById(tx.targetCompartmentId!).title
                 : null;
 
             return Card(
@@ -198,6 +197,8 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen> {
         return '${tx.actorName} hat "${tx.itemName}" von $compTitle nach ${targetTitle ?? ''} umgeräumt';
       case TransactionType.icePackToggle:
         return '${tx.actorName}: ${tx.itemName} (${tx.note ?? 'Status geändert'})';
+      case TransactionType.compartmentLabeled:
+        return '${tx.actorName} hat ${tx.unit} als "${tx.itemName}" beschriftet';
       case TransactionType.memberAdded:
         return '${tx.actorName} hat ${tx.itemName} in den Haushalt aufgenommen';
       case TransactionType.memberRemoved:
@@ -219,6 +220,8 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen> {
         return (icon: Icons.swap_vert_rounded, color: Colors.blue.shade700);
       case TransactionType.icePackToggle:
         return (icon: Icons.ac_unit, color: Colors.indigo.shade600);
+      case TransactionType.compartmentLabeled:
+        return (icon: Icons.label_outlined, color: Colors.pink.shade700);
       case TransactionType.memberAdded:
       case TransactionType.adminChanged:
         return (icon: Icons.person_add_alt_1, color: Colors.deepPurple);

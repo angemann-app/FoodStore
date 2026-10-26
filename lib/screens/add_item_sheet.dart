@@ -380,7 +380,7 @@ class _AddItemSheetState extends State<AddItemSheet> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Wo kommt es rein? (Siemens 6 Fächer + Türfach)
+                  // Wo kommt es rein? (Siemens 6 Fächer + Türfach inkl. Themen-Beschriftung)
                   DropdownButtonFormField<String>(
                     initialValue: _selectedCompartmentId,
                     decoration: const InputDecoration(
@@ -388,11 +388,11 @@ class _AddItemSheetState extends State<AddItemSheet> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.kitchen),
                     ),
-                    items: FreezerCompartment.siemensNoFrostCompartments.map((comp) {
+                    items: widget.appState.resolvedCompartments.map((comp) {
                       return DropdownMenuItem<String>(
                         value: comp.id,
                         child: Text(
-                          '${comp.title} – ${comp.subtitle}',
+                          '${comp.slotBadge}: ${comp.title}',
                           overflow: TextOverflow.ellipsis,
                         ),
                       );
@@ -573,7 +573,7 @@ class _AddItemSheetState extends State<AddItemSheet> {
                           )
                         : const Icon(Icons.check_circle_outline),
                     label: Text(
-                      'In ${FreezerCompartment.byId(_selectedCompartmentId).title} einlagern',
+                      'In ${widget.appState.compartmentById(_selectedCompartmentId).title} einlagern',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),

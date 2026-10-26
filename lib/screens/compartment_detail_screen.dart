@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/freezer_compartment.dart';
 import '../services/app_state.dart';
+import '../widgets/compartment_label_dialog.dart';
 import '../widgets/item_card.dart';
 import 'add_item_sheet.dart';
 
@@ -20,29 +21,42 @@ class CompartmentDetailScreen extends StatelessWidget {
     return ListenableBuilder(
       listenable: appState,
       builder: (context, _) {
-        final items = appState.itemsInCompartment(compartment.id);
+        final resolved = appState.compartmentById(compartment.id);
+        final items = appState.itemsInCompartment(resolved.id);
+        final themeColor = resolved.accentColor;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF3F7FA),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF005691),
+            backgroundColor: themeColor,
             foregroundColor: Colors.white,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  compartment.title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  '${resolved.slotBadge} • ${resolved.title}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  compartment.subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  resolved.subtitle,
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Schublade thematisch beschriften',
+                onPressed: () => CompartmentLabelDialog.show(
+                  context,
+                  appState: appState,
+                  compartment: resolved,
+                ),
+                icon: const Icon(Icons.edit_note_rounded),
+              ),
+            ],
           ),
           floatingActionButton: FloatingActionButton.extended(
-            backgroundColor: const Color(0xFF005691),
+            backgroundColor: themeColor,
             foregroundColor: Colors.white,
             onPressed: () {
               showModalBottomSheet(
@@ -51,12 +65,12 @@ class CompartmentDetailScreen extends StatelessWidget {
                 backgroundColor: Colors.transparent,
                 builder: (_) => AddItemSheet(
                   appState: appState,
-                  initialCompartmentId: compartment.id,
+                  initialCompartmentId: resolved.id,
                 ),
               );
             },
             icon: const Icon(Icons.add_box_outlined),
-            label: Text('In ${compartment.title} einlagern'),
+            label: Text('In ${resolved.title} einlagern'),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 92),
@@ -66,23 +80,26 @@ class CompartmentDetailScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF005691).withValues(alpha: 0.09),
+                      themeColor.withValues(alpha: 0.12),
                       Colors.white,
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.blue.shade100),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: themeColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      compartment.isDoorCompartment
-                          ? Icons.door_sliding_outlined
-                          : compartment.isBigBox
-                              ? Icons.inventory_2_outlined
-                              : Icons.kitchen_outlined,
-                      color: const Color(0xFF005691),
-                      size: 28,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: themeColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        resolved.themeIcon,
+                        color: Colors.white,
+                        size: 26,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -90,16 +107,16 @@ class CompartmentDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Empfehlung für ${compartment.title}:',
-                            style: const TextStyle(
+                            resolved.title,
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF005691),
+                              fontSize: 15,
+                              color: themeColor,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            compartment.recommendation,
+                            resolved.subtitle,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blueGrey.shade700,
@@ -108,20 +125,14 @@ class CompartmentDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.blueGrey.shade100),
+                    OutlinedButton.icon(
+                      onPressed: () => CompartmentLabelDialog.show(
+                        context,
+                        appState: appState,
+                        compartment: resolved,
                       ),
-                      child: Text(
-                        '${items.length} Pos.',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF005691),
-                        ),
-                      ),
+                      icon: const Icon(Icons.label_outline, size: 16),
+                      label: const Text('Beschriften', style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -132,18 +143,18 @@ class CompartmentDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Column(
                     children: [
                       Icon(
-                        Icons.ac_unit,
+                        resolved.themeIcon,
                         size: 48,
-                        color: Colors.blue.shade200,
+                        color: themeColor.withValues(alpha: 0.4),
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '${compartment.title} ist aktuell leer',
+                        '${resolved.title} ist aktuell leer',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -165,12 +176,14 @@ class CompartmentDetailScreen extends StatelessWidget {
                 ...items.map(
                   (item) => FreezerItemCard(
                     item: item,
+                    customCompartmentTitle: resolved.title,
+                    availableCompartments: appState.resolvedCompartments,
                     onIncrement: () => appState.adjustItemQuantity(item, 1),
                     onDecrement: () => appState.adjustItemQuantity(item, -1),
                     onRemoveAll: () => appState.adjustItemQuantity(
                       item,
                       -item.quantity,
-                      note: 'Aus ${compartment.title} entnommen',
+                      note: 'Aus ${resolved.title} entnommen',
                     ),
                     onMoveCompartment: (targetId) =>
                         appState.moveItemToCompartment(item, targetId),

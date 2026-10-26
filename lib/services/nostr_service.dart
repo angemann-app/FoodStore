@@ -227,6 +227,10 @@ class NostrService {
           // Nur die (max. 2) Hosts/Admins dürfen die Mitgliederliste / Admin-Rollen ändern
           if (household.isHost(senderPubkey)) {
             updatedHousehold = incomingHousehold;
+          } else {
+            updatedHousehold = household.copyWith(
+              compartmentLabels: incomingHousehold.compartmentLabels,
+            );
           }
         }
 

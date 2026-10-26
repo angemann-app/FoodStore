@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'freezer_compartment.dart';
+
 enum HouseholdRole {
   host,
   member;
@@ -211,6 +213,7 @@ class HouseholdConfig {
   final List<HouseholdMember> members;
   final List<String> relays;
   final R2Config r2Config;
+  final Map<String, CompartmentCustomLabel> compartmentLabels;
 
   const HouseholdConfig({
     required this.householdId,
@@ -223,6 +226,7 @@ class HouseholdConfig {
     required this.members,
     required this.relays,
     this.r2Config = const R2Config(),
+    this.compartmentLabels = const {},
   });
 
   /// Alle aktiven Admins/Hosts (max. 2 Personen).
@@ -273,6 +277,7 @@ class HouseholdConfig {
     List<HouseholdMember>? members,
     List<String>? relays,
     R2Config? r2Config,
+    Map<String, CompartmentCustomLabel>? compartmentLabels,
   }) {
     return HouseholdConfig(
       householdId: householdId ?? this.householdId,
@@ -285,6 +290,7 @@ class HouseholdConfig {
       members: members ?? this.members,
       relays: relays ?? this.relays,
       r2Config: r2Config ?? this.r2Config,
+      compartmentLabels: compartmentLabels ?? this.compartmentLabels,
     );
   }
 
@@ -307,6 +313,7 @@ class HouseholdConfig {
       'members': members.map((m) => m.toJson()).toList(),
       'relays': relays,
       'assignedRole': assignedRole.name,
+      'compartmentLabels': compartmentLabels.map((k, v) => MapEntry(k, v.toJson())),
       if (r2Config.isConfigured && r2Config.shareWithHousehold)
         'r2Config': r2Config.toJson(),
     };
@@ -348,6 +355,7 @@ class HouseholdConfig {
         'members': members.map((m) => m.toJson()).toList(),
         'relays': relays,
         'r2Config': r2Config.toJson(),
+        'compartmentLabels': compartmentLabels.map((k, v) => MapEntry(k, v.toJson())),
       };
 
   factory HouseholdConfig.fromJson(Map<String, dynamic> json) {
@@ -361,6 +369,18 @@ class HouseholdConfig {
     final adminsList = (json['adminPubkeys'] as List<dynamic>? ?? [])
         .map((e) => e.toString())
         .toList();
+
+    final labelsMap = <String, CompartmentCustomLabel>{};
+    if (json['compartmentLabels'] is Map<String, dynamic>) {
+      final rawLabels = json['compartmentLabels'] as Map<String, dynamic>;
+      for (final entry in rawLabels.entries) {
+        if (entry.value is Map<String, dynamic>) {
+          labelsMap[entry.key] = CompartmentCustomLabel.fromJson(
+            entry.value as Map<String, dynamic>,
+          );
+        }
+      }
+    }
 
     return HouseholdConfig(
       householdId: json['householdId']?.toString() ?? 'default',
@@ -381,6 +401,7 @@ class HouseholdConfig {
       r2Config: json['r2Config'] is Map<String, dynamic>
           ? R2Config.fromJson(json['r2Config'] as Map<String, dynamic>)
           : const R2Config(),
+      compartmentLabels: labelsMap,
     );
   }
 }
@@ -391,6 +412,7 @@ enum TransactionType {
   quantityChange,
   moveCompartment,
   icePackToggle,
+  compartmentLabeled,
   memberAdded,
   memberRemoved,
   adminChanged;
@@ -407,6 +429,8 @@ enum TransactionType {
         return 'Umgeräumt';
       case TransactionType.icePackToggle:
         return 'Kühlakku-Status';
+      case TransactionType.compartmentLabeled:
+        return 'Schublade beschriftet';
       case TransactionType.memberAdded:
         return 'Mitglied eingeladen';
       case TransactionType.memberRemoved:

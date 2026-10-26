@@ -94,12 +94,26 @@ void main() {
       expect(config.isMember(member3.pubkey), isTrue);
     });
 
-    test('has 6 Siemens drawers plus 1 door icepack compartment', () {
+    test('has 6 Siemens drawers plus 1 door icepack compartment and supports custom thematic labels', () {
       expect(FreezerCompartment.siemensNoFrostCompartments.length, equals(7));
       final bigBox = FreezerCompartment.byId('big_box');
       expect(bigBox.isBigBox, isTrue);
       final door = FreezerCompartment.byId('door_icepacks');
       expect(door.isDoorCompartment, isTrue);
+
+      final customLabels = {
+        'drawer_2': const CompartmentCustomLabel(
+          compartmentId: 'drawer_2',
+          themeTitle: 'Beeren, Obst & Smoothies',
+          themeSubtitle: 'Frühstücks-Schublade',
+          colorHex: '#D81B60',
+          iconKey: 'berries',
+        ),
+      };
+      final resolved = FreezerCompartment.byId('drawer_2', customLabels);
+      expect(resolved.hasCustomLabel, isTrue);
+      expect(resolved.title, equals('Beeren, Obst & Smoothies'));
+      expect(resolved.subtitle, equals('Frühstücks-Schublade'));
     });
   });
 }

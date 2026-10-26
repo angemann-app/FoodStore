@@ -54,6 +54,14 @@ class AppState extends ChangeNotifier {
   /// Ist der aktuelle Benutzer in der Familienmitglieder-Liste freigeschaltet?
   bool get isCurrentUserAuthorized => _household.isMember(_currentUser.pubkey);
 
+  /// Alle 7 Gefrierschrank-Fächer inkl. individueller thematischer Beschriftungen
+  List<FreezerCompartment> get resolvedCompartments =>
+      FreezerCompartment.resolvedCompartments(_household.compartmentLabels);
+
+  /// Einzelnes Fach inkl. individueller thematischer Beschriftung
+  FreezerCompartment compartmentById(String id) =>
+      FreezerCompartment.byId(id, _household.compartmentLabels);
+
   /// Artikel, die bald ablaufen oder bereits überfällig sind (Gefrierbrand-Warnung)
   List<FreezerItem> get expiringOrExpiredItems {
     final list = _items
@@ -368,6 +376,49 @@ class AppState extends ChangeNotifier {
     await _persistAll();
     notifyListeners();
     await _syncToNostr(latestTransaction: tx);
+  }
+
+  /// Beschriftet eine Gefrierschrank-Schublade individuell (thematische Sortierung)
+  Future<void> updateCompartmentLabel(CompartmentCustomLabel customLabel) async {
+    final updatedLabels = Map<String, CompartmentCustomLabel>.from(
+      _household.compartmentLabels,
+    );
+    updatedLabels[customLabel.compartmentId] = customLabel;
+    _household = _household.copyWith(compartmentLabels: updatedLabels);
+
+    final baseComp = FreezerCompartment.byId(customLabel.compartmentId);
+    final tx = InventoryTransaction(
+      id: _generateId('tx'),
+      type: TransactionType.compartmentLabeled,
+      itemId: customLabel.compartmentId,
+      itemName: customLabel.themeTitle,
+      compartmentId: customLabel.compartmentId,
+      quantityDelta: 1,
+      unit: baseComp.slotBadge,
+      actorPubkey: _currentUser.pubkey,
+      actorName: _currentUser.displayName,
+      timestamp: DateTime.now(),
+      note: customLabel.themeSubtitle.isNotEmpty
+          ? 'Thema: ${customLabel.themeSubtitle}'
+          : null,
+    );
+    _transactions.insert(0, tx);
+
+    await _persistAll();
+    notifyListeners();
+    await _syncToNostr(latestTransaction: tx);
+  }
+
+  /// Setzt die Beschriftung einer Schublade auf den Siemens-Standard zurück
+  Future<void> resetCompartmentLabel(String compartmentId) async {
+    final updatedLabels = Map<String, CompartmentCustomLabel>.from(
+      _household.compartmentLabels,
+    )..remove(compartmentId);
+    _household = _household.copyWith(compartmentLabels: updatedLabels);
+
+    await _persistAll();
+    notifyListeners();
+    await _syncToNostr();
   }
 
   // ===========================================================================
@@ -763,6 +814,11 @@ class AppState extends ChangeNotifier {
     // Wenn der Sender einer der 2 Hosts/Admins ist, übernehme aktualisierte Mitgliederliste & R2-Config
     if (_household.isHost(senderPubkey)) {
       _household = updatedHousehold;
+    } else if (updatedHousehold.compartmentLabels.isNotEmpty) {
+      // Thematische Schubladen-Beschriftungen dürfen von allen Haushaltsmitgliedern aktualisiert werden
+      _household = _household.copyWith(
+        compartmentLabels: updatedHousehold.compartmentLabels,
+      );
     }
 
     _lastSyncMessage = 'Bestand über Nostr aktualisiert';
